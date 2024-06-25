@@ -1,0 +1,112 @@
+<template>
+    <ContentField v-if="!$store.state.user.pulling_info">
+        <div class="row justify-content-md-center">
+            <div class="col-3">
+                <form @submit.prevent="login">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        <input v-model="username" type="text" class="form-control" id="username" placeholder="请输入用户名">
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <input v-model="password" type="password" class="form-control" id="password" placeholder="请输入密码">
+                    </div>
+                    <div class="error-message">{{ error_message }}</div>
+                    <button type="submit" class="btn btn-primary">提交</button>
+                </form>
+                <!-- <div style="text-align: center; margin-top: 20px; cursor: pointer;" @click="gitee_login">
+                    <img width="30" src="https://cdn.acwing.com/media/article/image/2022/09/06/1_32f001fd2d-acwing_logo.png" alt="">
+                    <br>
+                    Gitee一键登录
+                </div> -->
+
+            </div>
+        </div>
+    </ContentField>
+</template>
+
+<script>
+import ContentField from '../../../components/ContentField.vue'
+import { useStore } from 'vuex'
+import { ref } from 'vue'
+import router from '../../../router/index'
+import $ from 'jquery'
+import { serverIp } from '../../../config';
+
+export default {
+    components: {
+        ContentField
+    },
+    setup() {
+        const store = useStore();
+        let username = ref('');
+        let password = ref('');
+        let error_message = ref('');
+
+        const jwt_token = localStorage.getItem("jwt_token");
+        if (jwt_token) {
+            store.commit("updateToken", jwt_token);
+            store.dispatch("getinfo", {
+                success() {
+                    router.push({ name: "home" });
+                    store.commit("updatePullingInfo", false);
+                },
+                error() {
+                    store.commit("updatePullingInfo", false);
+                }
+            })
+        } else {
+            store.commit("updatePullingInfo", false);
+        }
+
+        const login = () => {
+            error_message.value = "";
+            store.dispatch("login", {
+                username: username.value,
+                password: password.value,
+                success() {
+                    store.dispatch("getinfo", {
+                        success() {
+                            router.push({ name: 'home' });
+                        }
+                    })
+                },
+                error() {
+                    error_message.value = "用户名或密码错误";
+                }
+            })
+        }
+
+        const gitee_login = () => {
+            $.ajax({
+                url: "http://" + serverIp + ":3000/api/user/account/gitee/web/apply_code/",
+                type: "GET",
+                success: resp => {
+                    if (resp.result === "success") {
+                        console.log("成功了哈哈哈")
+                        window.location.replace(resp.apply_code_url);
+                    }
+                }
+            })
+        }
+
+
+        return {
+            username,
+            password,
+            error_message,
+            login,
+            gitee_login,
+        }
+    }
+}
+</script>
+
+<style scoped>
+button {
+    width: 100%;
+}
+div.error-message {
+    color: red;
+}
+</style>
