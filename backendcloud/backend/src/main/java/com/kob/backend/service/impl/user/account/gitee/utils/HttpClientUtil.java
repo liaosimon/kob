@@ -36,5 +36,26 @@ public class HttpClientUtil {
         }
     }
 
+    public static String post(String url, List<NameValuePair> params) {
+        URIBuilder uriBuilder = null;
+        try {
+            uriBuilder = new URIBuilder(url);
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+            return null;
+        }
+        uriBuilder.setParameters(params);
+
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            HttpPost httpPost = new HttpPost(uriBuilder.build());
+            CloseableHttpResponse response = client.execute(httpPost);
+            HttpEntity entity = response.getEntity();
+            return EntityUtils.toString(entity);
+        } catch (IOException | URISyntaxException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
 }
 

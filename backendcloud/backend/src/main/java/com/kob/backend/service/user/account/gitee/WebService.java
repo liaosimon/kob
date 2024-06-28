@@ -4,6 +4,6 @@ import com.alibaba.fastjson.JSONObject;
 
 public interface WebService {
     JSONObject applyCode();
-    JSONObject receiveCode(String code);
+    JSONObject receiveCode(String code, String state);
 }
 

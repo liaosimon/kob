@@ -15,33 +15,39 @@ export default {
         const store = useStore();
 
         $.ajax({
-            url: "http://" + serverIp + ":3000/api/user/account/gitee/web/receive_code/",
-            type: "post",
-            data: {
-                code: myRoute.query.code,
-            },
-            success: resp => {
-                router.push({ name: "home" });
-                console.log("hhhhhhh")
-                if (resp.result === "success") {
-                    console.log("第三方登录成功了")
-                    localStorage.setItem("jwt_token", resp.jwt_token);
-                    store.commit("updateToken", resp.jwt_token);
-                    router.push({ name: "home" });
-                    store.commit("updatePullingInfo", false);
-                } else {
-                    console.log("第三方登录失败了")
-                    router.push({ name: "user_account_login" });
-                }
-            },
-            error: () => {
-                router.push({ name: "home" });
-                console.log("shibai")
-            },
-            complete: () => {
-                console.log("wanchengle")
+          url: "http://" + serverIp + ":3000/api/user/account/gitee/web/receive_code/",
+          type: "GET",
+          data: {
+            code: myRoute.query.code,
+            state: myRoute.query.state,
+          },
+          success: resp => {
+            console.log("AJAX success callback triggered");
+            console.log("Response received:", resp);
+
+            if (resp.result === "success") {
+              console.log("Third-party login successful");
+              localStorage.setItem("jwt_token", resp.jwt_token);
+              store.commit("updateToken", resp.jwt_token);
+              router.push({ name: "home" });
+              store.commit("updatePullingInfo", false);
+            } else {
+              console.log("Third-party login failed");
+              router.push({ name: "user_account_login" });
             }
-        })
+          },
+          error: function(jqXHR, textStatus, errorThrown) {
+            console.log("AJAX error callback triggered");
+            console.log('Error:', textStatus, errorThrown);
+            console.log('jqXHR:', jqXHR);
+            console.log('errorThrown:', errorThrown);
+            router.push({ name: "home" });
+          },
+          complete: function() {
+            console.log("AJAX request completed");
+          }
+       });
+
     }
 }
 </script>

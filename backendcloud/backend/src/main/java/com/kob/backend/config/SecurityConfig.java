@@ -44,8 +44,8 @@ public class SecurityConfig {
                                 .requestMatchers( "/pk/start/game/", "/api/user/account/token/",
                                         "/api/user/account/register/", "/pk/receive/bot/move/",
                                         "/api/user/account/gitee/web/apply_code/",
-                                        "/api/user/account/gitee/web/receive_code/",
-                                        "/favicon.ico"
+                                        "/api/user/account/gitee/web/receive_code/"
+//                                        "/favicon.ico"
                                 ).permitAll()
                                 .requestMatchers(HttpMethod.OPTIONS).permitAll()
                                 .anyRequest().authenticated());

@@ -17,18 +17,21 @@ public class WebController {
 
     @GetMapping("/api/user/account/gitee/web/apply_code/")
     public JSONObject applyCode() {
+        System.out.println("applyCode:");
         return webService.applyCode();
     }
 
     @GetMapping("/api/user/account/gitee/web/receive_code/")
     public JSONObject receiveCode(@RequestParam Map<String, String> data) {
+        System.out.println("receiveCode:");
         String code = data.get("code");
-        return webService.receiveCode(code);
+        String state = data.get("state");
+        return webService.receiveCode(code, state);
     }
 
-    @GetMapping("/favicon.ico")
-    public String receiveCode() {
-        return "";
-    }
+//    @GetMapping("/favicon.ico")
+//    public String receiveCode() {
+//        return "";
+//    }
 }
 

@@ -38,86 +38,92 @@ public class WebServiceImpl implements WebService {
     @Override
     public JSONObject applyCode() {
         JSONObject resp = new JSONObject();
+
+        // 随机字符串，防止 csrf 攻击
         StringBuilder state = new StringBuilder();
         for (int i = 0; i < 10; i ++ ) {
             state.append((char) (random.nextInt(10) + '0'));
         }
         resp.put("result", "success");
+        // 存到redis里，有效期设置为10分钟
         redisTemplate.opsForValue().set(state.toString(), "true");
         redisTemplate.expire(state.toString(), Duration.ofMinutes(10));  // 10分钟
         String applyCodeUrl = "https://gitee.com/oauth/authorize?client_id=" + clientId
                 + "&redirect_uri=" + redirectUri
-                + "&response_type=code";
+                + "&response_type=code"
+                + "&state=" + state;
         resp.put("apply_code_url", applyCodeUrl);
+        System.out.println("applyCode: " + applyCodeUrl);
         return resp;
     }
 
     @Override
-    public JSONObject receiveCode(String code) {
+    public JSONObject receiveCode(String code, String state) {
         JSONObject resp = new JSONObject();
         resp.put("result", "failed");
-        if (code == null) {
+        if (code == null || state == null) {
             return resp;
         }
 
-        OkHttpClient client = new OkHttpClient();
-
-        // 封装请求参数
-        RequestBody requestBody = new FormBody.Builder()
-                .add("grant_type", "authorization_code")
-                .add("code", code)
-                .add("client_id", clientId)
-                .add("redirect_uri", redirectUri)
-                .add("client_secret", clientSecret)
-                .build();
-
-        Request request = new Request.Builder()
-                .post(requestBody)
-                .url(applyAccessTokenUrl).build();
-        String accessToken = "";
-        try {
-            Response response = client.newCall(request).execute();
-            String json = response.body().string();
-            // 获取json串中的access_token属性
-            accessToken = (String) JSONObject.parseObject(json).get("access_token");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        if (accessToken == null || accessToken.isEmpty()) {
+        if (Boolean.FALSE.equals(redisTemplate.hasKey(state))) {
             return resp;
         }
-
+        redisTemplate.delete(state);
+        // 获取access_token
         List<NameValuePair> nameValuePairs = new LinkedList<>();
-        nameValuePairs.add(new BasicNameValuePair("access_token", accessToken));
-        String getString = HttpClientUtil.get(getUserInfoUrl, nameValuePairs);
-        if (getString == null) {
+        nameValuePairs.add(new BasicNameValuePair("grant_type", "authorization_code"));
+        nameValuePairs.add(new BasicNameValuePair("client_id", clientId));
+        nameValuePairs.add(new BasicNameValuePair("client_secret", clientSecret));
+        nameValuePairs.add(new BasicNameValuePair("code", code));
+        nameValuePairs.add(new BasicNameValuePair("redirect_uri", redirectUri));
+
+        String getString = HttpClientUtil.post(applyAccessTokenUrl, nameValuePairs);
+        if (null == getString) {
             return resp;
         }
         JSONObject getResp = JSONObject.parseObject(getString);
-        String id = getResp.getString("id");
-        String username = getResp.getString("name");
-        String photo = getResp.getString("avatar_url");
+        String accessToken = getResp.getString("access_token");
 
-        if (username == null || photo == null || id == null) {
+        // 获取openid
+        nameValuePairs = new LinkedList<>();
+        nameValuePairs.add(new BasicNameValuePair("access_token", accessToken));
+
+        getString = HttpClientUtil.get(getUserInfoUrl, nameValuePairs);
+        if(null == getString) {
+            return resp;
+        }
+        getResp = JSONObject.parseObject(getString);
+        String openid = getResp.getString("id");
+
+        if (accessToken == null || openid == null) {
             return resp;
         }
 
-//        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-//        queryWrapper.eq("openid", id);
-//        List<User> users = userMapper.selectList(queryWrapper);
-//        if (!users.isEmpty()) {
-//            User user = users.get(0);
-//            String jwt = JwtUtil.createJWT(user.getId().toString());
-//            resp.put("result", "success");
-//            resp.put("jwt_token", jwt);
-//            return resp;
-//        }
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("openid", openid);
+        List<User> users = userMapper.selectList(queryWrapper);
 
-        for (int i = 0; i < 100; i ++ ) {
+        // 用户已经授权，自动登录
+        if (null != users && !users.isEmpty()) {
+            User user = users.get(0);
+            // 生成jwt
+            String jwt = JwtUtil.createJWT(user.getId().toString());
+
+            resp.put("result", "success");
+            resp.put("jwt_token", jwt);
+            return resp;
+        }
+        String username = getResp.getString("name");
+        // 40 * 40 的头像
+        String photo = getResp.getString("avatar_url");
+
+        if (null == username || null == photo) return resp;
+
+        // 每次循环，用户名重复的概率为上一次的1/10
+        for (int i = 0; i < 100; i ++) {
             QueryWrapper<User> usernameQueryWrapper = new QueryWrapper<>();
             usernameQueryWrapper.eq("username", username);
-            if (userMapper.selectList(usernameQueryWrapper).isEmpty()) {
+            if (userMapper.selectCount(usernameQueryWrapper) == 0) {
                 break;
             }
             username += (char)(random.nextInt(10) + '0');
@@ -125,16 +131,9 @@ public class WebServiceImpl implements WebService {
                 return resp;
             }
         }
-
-        User user = new User(
-                null,
-                username,
-                null,
-                photo,
-                1500,
-                id
-        );
+        User user = new User(null, username, null, photo, 1500, openid);
         userMapper.insert(user);
+        // 生成 jwt
         String jwt = JwtUtil.createJWT(user.getId().toString());
         resp.put("result", "success");
         resp.put("jwt_token", jwt);
