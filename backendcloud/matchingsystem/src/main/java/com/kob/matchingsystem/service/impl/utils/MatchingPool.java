@@ -74,11 +74,21 @@ public class MatchingPool extends Thread {
             if (used[i]) {
                 continue;
             }
+            Player a = players.get(i);
+//            System.out.println("player: " + players.get(i).getUserId() + " waitingTime: " + players.get(i).getWaitingTime());
+            // 等待时间超过到达15秒直接匹配人机
+            if (players.get(i).getWaitingTime() >= 15) {
+                used[i] = true;
+                // 生成一个人机
+                Player b = new Player(-1, 1500, -1, 0);
+                sendResult(a, b);
+                continue;
+            }
             for (int j = i + 1; j < players.size(); j ++ ) {
                 if (used[j]) {
                     continue;
                 }
-                Player a = players.get(i), b = players.get(j);
+                Player b = players.get(j);
                 if (checkMatched(a, b)) {
                     used[i] = used[j] = true;
                     sendResult(a, b);

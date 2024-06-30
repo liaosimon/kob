@@ -1,7 +1,7 @@
 <template>
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
-      <router-link class="navbar-brand" :to="{name: 'home'}">King Of Bots</router-link>
+      <router-link class="navbar-brand" :to="{name: 'home'}">贪吃蛇实时对战平台</router-link>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -15,6 +15,9 @@
           </li>
           <li class="nav-item">
             <router-link :class="route_name == 'ranklist_index' ? 'nav-link active' : 'nav-link'" :to="{name: 'ranklist_index'}">排行榜</router-link>
+          </li>
+          <li class="nav-item">
+            <router-link :class="route_name === 'info_index' ? 'nav-link active' : 'nav-link'" :to="{name: 'info_index'}">游戏规则与Bot样例</router-link>
           </li>
         </ul>
         <ul class="navbar-nav" v-if="$store.state.user.is_login">

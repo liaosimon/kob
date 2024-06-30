@@ -12,6 +12,7 @@ import jakarta.websocket.*;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -32,6 +33,8 @@ public class WebSocketServer {
     public static RecordMapper recordMapper;
     private static BotMapper botMapper;
     public static RestTemplate restTemplate;
+
+    public static RedisTemplate<String, String> redisTemplate;
     public Game game = null;
     private final static String addPlayerUrl = "http://127.0.0.1:3001/player/add/";
     private final static String removePlayerurl = "http://127.0.0.1:3001/player/remove/";
@@ -51,6 +54,11 @@ public class WebSocketServer {
     @Autowired
     public void setRestTemplate(RestTemplate restTemplate) {
         WebSocketServer.restTemplate = restTemplate;
+    }
+
+    @Autowired
+    public void setRedisTemplate(RedisTemplate<String, String> redisTemplate) {
+        WebSocketServer.redisTemplate = redisTemplate;
     }
 
     @OnOpen
@@ -94,7 +102,7 @@ public class WebSocketServer {
         if (users.get(a.getId()) != null) {
             users.get(a.getId()).game = game;
         }
-        if (users.get(b.getId()) != null) {
+        if (users.get(b.getId()) != null && bId != -1) {
             users.get(b.getId()).game = game;
         }
 

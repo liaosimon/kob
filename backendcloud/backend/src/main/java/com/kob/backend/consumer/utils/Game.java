@@ -8,10 +8,7 @@ import com.kob.backend.pojo.User;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Game extends Thread {
@@ -21,9 +18,12 @@ public class Game extends Thread {
     private final int[][] g;
     private final static int[] dx = {-1, 0, 1, 0}, dy = {0, 1, 0, -1};
     private final Player playerA, playerB;
+    private String aiUserId;
     private Integer nextStepA = null;
     private Integer nextStepB = null;
     private ReentrantLock lock = new ReentrantLock();
+    private static final Random random = new Random();
+
     private String status = "playing";  // playing -> finished
     private String loser = "";  // all: 平局，A: A输，B: B输
     private final static String addBotUrl = "http://127.0.0.1:3002/bot/add/";
@@ -169,14 +169,28 @@ public class Game extends Thread {
     }
 
     private void sendBotCode(Player player) {
-        if (player.getBotId().equals(-1)) {
-            return;  // 亲自出马，不需要执行代码
+        // 判断当前玩家是否是人机
+        if (player.getId() == -1) {
+            MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
+            // 每次随机一个 id 给当前的 ai
+            aiUserId = (random.nextInt(100000) * -1) + "";
+            data.add("user_id", aiUserId);
+            data.add("bot_code", player.getBotCode());
+            data.add("input", getInput(player));
+//            System.out.println("sendBot: aiUserId:" + aiUserId + " " + player.getBotId());
+            WebSocketServer.restTemplate.postForObject(addBotUrl, data, String.class);
         }
-        MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
-        data.add("user_id", player.getId().toString());
-        data.add("bot_code", player.getBotCode());
-        data.add("input", getInput(player));
-        WebSocketServer.restTemplate.postForObject(addBotUrl, data, String.class);
+        else {
+            // 先判断是否是人工出战
+            if (player.getBotId().equals(-1)) {
+                return; // 亲自出马，不需要执行代码
+            }
+            MultiValueMap<String, String> data = new LinkedMultiValueMap<>();
+            data.add("user_id", player.getId().toString());
+            data.add("bot_code", player.getBotCode());
+            data.add("input", getInput(player));
+            WebSocketServer.restTemplate.postForObject(addBotUrl, data, String.class);
+        }
     }
 
     private boolean nextStep() {  // 等待两名玩家的下一步操作
@@ -189,12 +203,21 @@ public class Game extends Thread {
         sendBotCode(playerA);
         sendBotCode(playerB);
 
-        for (int i = 0; i < 50; i ++ ) {
+        for (int i = 0; i < 50; i++) {
             try {
                 Thread.sleep(100);
-                lock.lock();
                 try {
-                    if (nextStepA != null && nextStepB != null) {
+                    lock.lock();
+
+                    if (playerB.getId() == -1 && null == nextStepB) {
+                        if (Boolean.TRUE.equals(WebSocketServer.redisTemplate.hasKey(aiUserId))) {
+                            nextStepB = Integer.parseInt(
+                                    Objects.requireNonNull(WebSocketServer.redisTemplate.opsForValue().get(aiUserId)));
+                            WebSocketServer.redisTemplate.delete(aiUserId);
+                        }
+                    }
+
+                    if (null != nextStepA && null != nextStepB) {
                         playerA.getSteps().add(nextStepA);
                         playerB.getSteps().add(nextStepB);
                         return true;
@@ -206,7 +229,6 @@ public class Game extends Thread {
                 e.printStackTrace();
             }
         }
-
         return false;
     }
 
@@ -303,7 +325,10 @@ public class Game extends Thread {
         }
 
         updateUserRating(playerA, ratingA);
-        updateUserRating(playerB, ratingB);
+        // 人机的分数不用改变
+        if (playerB.getId() != -1) {
+            updateUserRating(playerB, ratingB);
+        }
 
         Record record = new Record(
                 null,
